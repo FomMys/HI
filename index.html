@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nyx Calder — The Glitchrunner</title>
+
+<style>
+:root {
+  --cyan: #00ffff;
+  --purple: #7b2cff;
+  --bg: #0a0a0f;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #111 0%, var(--bg) 60%);
+  color: var(--cyan);
+  font-family: "Courier New", monospace;
+  overflow: hidden;
+}
+
+#ui {
+  padding: 20px;
+}
+
+h1 {
+  margin: 0;
+  color: var(--purple);
+  text-shadow: 0 0 10px var(--purple);
+}
+
+.subtitle {
+  opacity: 0.8;
+  margin-bottom: 10px;
+}
+
+#corruption-bar {
+  width: 300px;
+  height: 12px;
+  background: #222;
+  border: 1px solid var(--cyan);
+  margin: 10px 0;
+}
+
+#corruption-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cyan), var(--purple));
+}
+
+button {
+  background: transparent;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  padding: 8px 12px;
+  margin: 5px 5px 0 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:hover {
+  background: rgba(0,255,255,0.1);
+}
+
+#log {
+  margin-top: 15px;
+  font-size: 14px;
+  opacity: 0.9;
+  height: 120px;
+  overflow: hidden;
+}
+
+.glitch {
+  animation: glitch 0.2s infinite;
+}
+
+@keyframes glitch {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 1px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -2px); }
+  100% { transform: translate(0); }
+}
+
+.corrupted {
+  filter: hue-rotate(40deg) contrast(1.2) saturate(1.4);
+}
+</style>
+</head>
+
+<body>
+<div id="ui">
+  <h1 id="title">Nyx Calder</h1>
+  <div class="subtitle">Alias: The Glitchrunner</div>
+
+  <div>Reality Corruption</div>
+  <div id="corruption-bar">
+    <div id="corruption-fill"></div>
+  </div>
+
+  <div>
+    <button onclick="useAbility('Frame Skip', 10)">Frame Skip</button>
+    <button onclick="useAbility('Lag Field', 15)">Lag Field</button>
+    <button onclick="useAbility('Ghost Walk', 20)">Ghost Walk</button>
+    <button onclick="hardReset()">Hard Reset</button>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<script>
+let corruption = 0;
+const maxCorruption = 100;
+const log = document.getElementById("log");
+const fill = document.getElementById("corruption-fill");
+const title = document.getElementById("title");
+
+function logMsg(text) {
+  const line = document.createElement("div");
+  line.textContent = "> " + text;
+  log.prepend(line);
+  if (log.children.length > 6) log.removeChild(log.lastChild);
+}
+
+function updateUI() {
+  fill.style.width = corruption + "%";
+
+  if (corruption > 50) {
+    document.body.classList.add("corrupted");
+  } else {
+    document.body.classList.remove("corrupted");
+  }
+
+  if (corruption > 70) {
+    title.classList.add("glitch");
+  } else {
+    title.classList.remove("glitch");
+  }
+}
+
+function useAbility(name, cost) {
+  corruption = Math.min(maxCorruption, corruption + cost);
+  logMsg(name + " activated. Reality stutters.");
+  updateUI();
+}
+
+function hardReset() {
+  logMsg("Hard Reset initiated... Let’s try that again.");
+  corruption = 0;
+  updateUI();
+}
+
+// ambient decay
+setInterval(() => {
+  if (corruption > 0) {
+    corruption -= 1;
+    updateUI();
+  }
+}, 1000);
+</script>
+</body>
+</html>

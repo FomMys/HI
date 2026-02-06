@@ -1,62 +1,67 @@
 ```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Glitchrunner: Quantum Desync</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLITCHRUNNER</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #000;
             font-family: 'Courier New', monospace;
-            color: #00ffff;
+            color: cyan;
+            user-select: none;
         }
         #gameCanvas {
             display: block;
+            background-color: #000;
             image-rendering: pixelated;
-            filter: sepia(20%) contrast(150%);
         }
         #ui {
             position: absolute;
             top: 10px;
             left: 10px;
-            z-index: 100;
-            text-shadow: 0 0 5px #ff00ff;
+            font-size: 14px;
         }
-        #corruptionBar {
+        #corruptionMeter {
             position: absolute;
             bottom: 20px;
             left: 20px;
             width: 200px;
             height: 10px;
-            background: #111;
-            border: 1px solid #00ffff;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid cyan;
         }
         #corruptionFill {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #00ffff, #ff00ff);
-            transition: width 0.3s;
+            background: purple;
+            transition: width 0.3s ease;
         }
         .glitch {
-            animation: glitch 1s infinite;
+            animation: glitchEffect 0.1s infinite;
         }
-        @keyframes glitch {
-            0% { text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff; }
-            25% { text-shadow: -2px 0 #ff00ff, 2px 0 #00ffff; }
-            50% { text-shadow: 1px 0 #ff00ff, -1px 0 #00ffff; }
-            75% { text-shadow: -1px 0 #ff00ff, 1px 0 #00ffff; }
-            100% { text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff; }
+        @keyframes glitchEffect {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(2px, -1px); }
+            60% { transform: translate(-1px, 1px); }
+            80% { transform: translate(1px, -2px); }
+            100% { transform: translate(0); }
         }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="ui">
-        <h1 class="glitch">GLITCHRUNNER</h1>
-        <p>CORRUPTION: <span id="corruptionValue">0%</span></p>
+        LEVEL: <span id="levelDisplay">1</span> | HEALTH: <span id="healthDisplay">100</span>%<br>
+        Z: Frame Skip | X: Lag Field | C: Hard Reset
     </div>
-    <div id="corruptionBar"><div id="corruptionFill"></div></div>
+    <div id="corruptionMeter">
+        <div id="corruptionFill"></div>
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -65,120 +70,349 @@
         canvas.height = window.innerHeight;
 
         // Game state
-        const game = {
-            player: {
-                x: 100,
-                y: 100,
-                width: 32,
-                height: 48,
-                speed: 5,
-                isGlitching: false,
-                corruption: 0,
-                abilities: {
-                    frameSkip: { cooldown: 0, maxCooldown: 120 },
-                    lagField: { active: false, duration: 0 },
-                    ghostWalk: { active: false, duration: 0 }
-                }
-            },
-            platforms: [],
-            enemies: [],
-            glitches: [],
-            rooms: []
+        let level = 1;
+        let health = 100;
+        let corruption = 0;
+        let enemies = [];
+        let platforms = [];
+        let player = {
+            x: 50,
+            y: canvas.height - 100,
+            width: 20,
+            height: 40,
+            velocityY: 0,
+            isJumping: false,
+            frameSkipCooldown: 0,
+            lagFieldCooldown: 0,
+            hardResetCooldown: 0
         };
 
-        // Initialize platforms
-        for (let i = 0; i < 20; i++) {
-            game.platforms.push({
-                x: Math.random() * canvas.width,
-                y: 50 + Math.random() * (canvas.height - 100),
-                width: 80 + Math.random() * 120,
-                height: 20,
-                glitchProb: Math.random() * 0.3
-            });
+        // Controls
+        const keys = {
+            z: false,
+            x: false,
+            c: false,
+            left: false,
+            right: false,
+            up: false
+        };
+
+        // Initialize game
+        function initLevel() {
+            enemies = [];
+            platforms = [];
+            
+            // Generate platforms
+            for (let i = 0; i < 5 + level; i++) {
+                platforms.push({
+                    x: Math.random() * (canvas.width - 100),
+                    y: canvas.height - 50 - (i * 100),
+                    width: 80 + Math.random() * 100,
+                    height: 10
+                });
+            }
+
+            // Generate enemies
+            const enemyTypes = ['patrol', 'shooter', 'charger'];
+            for (let i = 0; i < level; i++) {
+                enemies.push({
+                    x: Math.random() * (canvas.width - 20),
+                    y: platforms[Math.floor(Math.random() * platforms.length)].y - 40,
+                    width: 20,
+                    height: 30,
+                    type: enemyTypes[Math.floor(Math.random() * enemyTypes.length)],
+                    speed: 1 + Math.random(),
+                    health: 2,
+                    direction: Math.random() > 0.5 ? 1 : -1,
+                    shootCooldown: 0
+                });
+            }
+
+            player.x = 50;
+            player.y = canvas.height - 100;
+            corruption = Math.min(corruption, 90); // Cap corruption between levels
+            updateUI();
+        }
+
+        // Update UI elements
+        function updateUI() {
+            document.getElementById('levelDisplay').textContent = level;
+            document.getElementById('healthDisplay').textContent = health;
+            document.getElementById('corruptionFill').style.width = `${corruption}%`;
+        }
+
+        // Handle collisions
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
         }
 
         // Game loop
-        function update() {
+        function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Draw glitch effects
-            if (game.player.isGlitching) {
-                ctx.save();
-                ctx.globalAlpha = 0.3;
-                ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            // Draw background with glitch effect
+            if (corruption > 50) {
+                ctx.fillStyle = '#110011';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.restore();
+                
+                // Corruption visual effects
+                if (Math.random() < corruption / 200) {
+                    ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+                    ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 
+                                Math.random() * 100, Math.random() * 100);
+                }
+            } else {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
             // Draw platforms
-            ctx.fillStyle = '#222';
-            game.platforms.forEach(plat => {
-                ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+            ctx.fillStyle = '#333';
+            platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                
+                // Corruption effect on platforms
+                if (corruption > 30 && Math.random() < 0.1) {
+                    ctx.fillStyle = 'purple';
+                    ctx.fillRect(platform.x + Math.random() * 10, platform.y, 
+                                Math.random() * 20, platform.height);
+                    ctx.fillStyle = '#333';
+                }
             });
 
-            // Draw player
-            ctx.fillStyle = game.player.isGlitching ? '#ff00ff' : '#00ffff';
-            ctx.fillRect(game.player.x, game.player.y, game.player.width, game.player.height);
-
-            // Corruption effects
-            if (game.player.corruption > 50) {
-                ctx.save();
-                ctx.strokeStyle = '#ff00ff';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(0, Math.random() * canvas.height);
-                ctx.lineTo(canvas.width, Math.random() * canvas.height);
-                ctx.stroke();
-                ctx.restore();
+            // Player movement
+            if (keys.left) player.x -= 5;
+            if (keys.right) player.x += 5;
+            
+            // Jumping
+            if (keys.up && !player.isJumping) {
+                player.velocityY = -12;
+                player.isJumping = true;
             }
 
-            // Update UI
-            document.getElementById('corruptionValue').textContent = `${game.player.corruption}%`;
-            document.getElementById('corruptionFill').style.width = `${game.player.corruption}%`;
+            // Apply gravity
+            player.velocityY += 0.5;
+            player.y += player.velocityY;
 
-            requestAnimationFrame(update);
-        }
+            // Platform collision
+            let onPlatform = false;
+            platforms.forEach(platform => {
+                if (player.x < platform.x + platform.width &&
+                    player.x + player.width > platform.x &&
+                    player.y + player.height > platform.y &&
+                    player.y + player.height < platform.y + platform.height &&
+                    player.velocityY > 0) {
+                    player.y = platform.y - player.height;
+                    player.velocityY = 0;
+                    player.isJumping = false;
+                    onPlatform = true;
+                }
+            });
 
-        // Controls
-        window.addEventListener('keydown', (e) => {
-            // Movement
-            if (e.key === 'ArrowRight') game.player.x += game.player.speed;
-            if (e.key === 'ArrowLeft') game.player.x -= game.player.speed;
-            if (e.key === 'ArrowUp') game.player.y -= game.player.speed;
-            if (e.key === 'ArrowDown') game.player.y += game.player.speed;
+            // Screen bounds
+            player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+            if (player.y > canvas.height) {
+                health -= 10;
+                player.y = canvas.height - player.height;
+                player.velocityY = 0;
+                updateUI();
+            }
 
             // Abilities
-            if (e.key === 'f') {
-                // Frame skip
-                if (game.player.abilities.frameSkip.cooldown === 0) {
-                    game.player.x += 100;
-                    game.player.abilities.frameSkip.cooldown = game.player.abilities.frameSkip.maxCooldown;
-                    game.player.isGlitching = true;
-                    setTimeout(() => game.player.isGlitching = false, 300);
-                    game.player.corruption += 5;
-                }
+            if (keys.z && player.frameSkipCooldown <= 0) {
+                player.x += 150 * (keys.right ? 1 : (keys.left ? -1 : 1));
+                corruption += 5;
+                player.frameSkipCooldown = 60;
+                
+                // Check if teleported through enemies
+                enemies.forEach(enemy => {
+                    if (checkCollision(player, enemy)) {
+                        enemy.health--;
+                        if (enemy.health <= 0) {
+                            enemies.splice(enemies.indexOf(enemy), 1);
+                        }
+                    }
+                });
+                
+                // Add afterimage effect
+                setTimeout(() => {
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+                    ctx.fillRect(player.x - 75, player.y, player.width, player.height);
+                }, 100);
             }
 
-            if (e.key === 'g') {
-                // Ghost walk
-                game.player.isGlitching = true;
-                game.player.corruption += 10;
-                setTimeout(() => game.player.isGlitching = false, 1000);
+            if (keys.x && player.lagFieldCooldown <= 0) {
+                corruption += 8;
+                player.lagFieldCooldown = 120;
+                
+                // Slow enemies in range
+                enemies.forEach(enemy => {
+                    if (Math.abs(enemy.x - player.x) < 200 && Math.abs(enemy.y - player.y) < 200) {
+                        enemy.speed = enemy.speed * 0.3;
+                        setTimeout(() => {
+                            enemy.speed = enemy.speed / 0.3;
+                        }, 2000);
+                    }
+                });
+                
+                // Visual effect
+                ctx.strokeStyle = 'cyan';
+                ctx.beginPath();
+                ctx.arc(player.x + player.width/2, player.y + player.height/2, 200, 0, Math.PI * 2);
+                ctx.stroke();
             }
+
+            if (keys.c && player.hardResetCooldown <= 0 && health < 100) {
+                corruption += 15;
+                player.hardResetCooldown = 180;
+                health = Math.min(100, health + 30);
+                updateUI();
+                
+                // Visual effect
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Update cooldowns
+            if (player.frameSkipCooldown > 0) player.frameSkipCooldown--;
+            if (player.lagFieldCooldown > 0) player.lagFieldCooldown--;
+            if (player.hardResetCooldown > 0) player.hardResetCooldown--;
+
+            // Draw player
+            ctx.fillStyle = corruption > 70 ? 'purple' : 'cyan';
+            if (corruption > 50 && Math.random() < 0.1) {
+                ctx.fillStyle = ['cyan', 'purple', 'white'][Math.floor(Math.random() * 3)];
+            }
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            // Enemy logic
+            enemies.forEach(enemy => {
+                // Movement
+                if (enemy.type === 'patrol') {
+                    enemy.x += enemy.speed * enemy.direction;
+                    
+                    // Change direction at edges
+                    if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+                        enemy.direction *= -1;
+                    }
+                    
+                    // Check if at platform edge
+                    const currentPlatform = platforms.find(p => 
+                        enemy.x > p.x && enemy.x < p.x + p.width && 
+                        Math.abs(enemy.y + enemy.height - p.y) < 5
+                    );
+                    
+                    if (currentPlatform) {
+                        if ((enemy.direction === -1 && enemy.x <= currentPlatform.x) || 
+                            (enemy.direction === 1 && enemy.x + enemy.width >= currentPlatform.x + currentPlatform.width)) {
+                            enemy.direction *= -1;
+                        }
+                    }
+                } else if (enemy.type === 'charger') {
+                    if (Math.abs(player.x - enemy.x) < 200) {
+                        enemy.x += enemy.speed * (player.x > enemy.x ? 1 : -1);
+                    }
+                } else if (enemy.type === 'shooter') {
+                    enemy.shootCooldown--;
+                    if (enemy.shootCooldown <= 0) {
+                        enemies.push({
+                            x: enemy.x + enemy.width/2,
+                            y: enemy.y + enemy.height/2,
+                            width: 5,
+                            height: 5,
+                            type: 'projectile',
+                            speed: 3,
+                            direction: player.x > enemy.x ? 1 : -1
+                        });
+                        enemy.shootCooldown = 120;
+                    }
+                }
+                
+                // Projectile logic
+                if (enemy.type === 'projectile') {
+                    enemy.x += enemy.speed * enemy.direction;
+                    
+                    // Check collision with player
+                    if (checkCollision(player, enemy)) {
+                        health -= 10;
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                        updateUI();
+                    }
+                    
+                    // Remove if out of bounds
+                    if (enemy.x < 0 || enemy.x > canvas.width) {
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                    }
+                }
+                
+                // Draw enemy
+                ctx.fillStyle = enemy.type === 'shooter' ? 'red' : 
+                               enemy.type === 'charger' ? 'orange' : 
+                               enemy.type === 'projectile' ? 'yellow' : 'white';
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                
+                // Check collision with player
+                if (checkCollision(player, enemy) && enemy.type !== 'projectile') {
+                    health -= 5;
+                    player.x += enemy.direction * 20;
+                    updateUI();
+                }
+            });
+
+            // Check level completion
+            if (enemies.length === 0) {
+                level++;
+                if (level > 15) {
+                    alert("SYSTEM REBOOT: You've reached the core.");
+                    level = 1;
+                    health = 100;
+                    corruption = 0;
+                }
+                initLevel();
+            }
+
+            // Check game over
+            if (health <= 0) {
+                alert("PROCESS TERMINATED. Press OK to retry.");
+                level = 1;
+                health = 100;
+                corruption = 0;
+                initLevel();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'z') keys.z = true;
+            if (e.key === 'x') keys.x = true;
+            if (e.key === 'c') keys.c = true;
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'ArrowUp') keys.up = true;
         });
 
-        // Cool down timers
-        setInterval(() => {
-            if (game.player.abilities.frameSkip.cooldown > 0) {
-                game.player.abilities.frameSkip.cooldown--;
-            }
-            if (game.player.corruption > 0) {
-                game.player.corruption -= 0.5;
-            }
-        }, 1000/60);
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'z') keys.z = false;
+            if (e.key === 'x') keys.x = false;
+            if (e.key === 'c') keys.c = false;
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+            if (e.key === 'ArrowUp') keys.up = false;
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
 
         // Start game
-        update();
+        initLevel();
+        gameLoop();
     </script>
 </body>
 </html>

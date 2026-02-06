@@ -1,246 +1,184 @@
 ```html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nyx Calder: Glitchrunner</title>
+    <title>Glitchrunner: Quantum Desync</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background: #000;
+            background-color: #000;
             font-family: 'Courier New', monospace;
-            color: #0ff;
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="none"/><path fill="%2300ffff" d="M8 0L0 8l3 3 5-5 5 5 3-3z"/></svg>'), auto;
+            color: #00ffff;
         }
-
-        #glitchrunner {
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            filter: sepia(20%) contrast(150%);
+        }
+        #ui {
             position: absolute;
-            width: 100vw;
-            height: 100vh;
-            background: radial-gradient(circle at center, rgba(102, 51, 153, 0.2) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: -1;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            text-shadow: 0 0 5px #ff00ff;
         }
-
-        .terminal {
+        #corruptionBar {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80%;
-            max-width: 800px;
-            border: 1px solid #0ff;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-            padding: 2rem;
-            background: rgba(0, 0, 0, 0.8);
-            animation: flicker 0.1s infinite alternate;
-        }
-
-        .glitch-img {
-            float: right;
+            bottom: 20px;
+            left: 20px;
             width: 200px;
-            height: 300px;
-            margin-left: 2rem;
-            border: 2px solid #f0f;
-            filter: hue-rotate(90deg);
-            animation: glitch 5s infinite;
+            height: 10px;
+            background: #111;
+            border: 1px solid #00ffff;
         }
-
-        @keyframes flicker {
-            0% { opacity: 0.9; }
-            100% { opacity: 1; }
+        #corruptionFill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            transition: width 0.3s;
         }
-
+        .glitch {
+            animation: glitch 1s infinite;
+        }
         @keyframes glitch {
-            0% { filter: hue-rotate(0); }
-            25% { filter: hue-rotate(90deg) contrast(150%); }
-            50% { filter: hue-rotate(180deg) brightness(1.5); }
-            75% { filter: hue-rotate(270deg) saturate(200%); }
-            100% { filter: hue-rotate(360deg); }
-        }
-
-        h1 {
-            color: #f0f;
-            text-shadow: 0 0 10px #f0f;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px dashed #0ff;
-            padding-bottom: 0.5rem;
-        }
-
-        .tag {
-            display: inline-block;
-            background: rgba(0, 255, 255, 0.2);
-            padding: 0.3rem 0.6rem;
-            margin: 0.2rem;
-            border-radius: 3px;
-            font-size: 0.8rem;
-        }
-
-        button {
-            background: transparent;
-            color: #0ff;
-            border: 1px solid #0ff;
-            padding: 0.5rem 1rem;
-            margin: 0.5rem;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        button:hover {
-            background: rgba(0, 255, 255, 0.2);
-            box-shadow: 0 0 10px #0ff;
-        }
-
-        .abilities {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin: 1rem 0;
-        }
-
-        .ability {
-            border-left: 3px solid #f0f;
-            padding-left: 1rem;
-        }
-
-        .corruption-meter {
-            height: 5px;
-            width: 100%;
-            background: linear-gradient(to right, #0ff, #f0f);
-            margin: 1rem 0;
-            position: relative;
-        }
-
-        .corruption-level {
-            position: absolute;
-            right: 0;
-            top: -1.5rem;
-            font-size: 0.8rem;
+            0% { text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff; }
+            25% { text-shadow: -2px 0 #ff00ff, 2px 0 #00ffff; }
+            50% { text-shadow: 1px 0 #ff00ff, -1px 0 #00ffff; }
+            75% { text-shadow: -1px 0 #ff00ff, 1px 0 #00ffff; }
+            100% { text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff; }
         }
     </style>
 </head>
 <body>
-    <div id="glitchrunner"></div>
-    
-    <div class="terminal">
-        <img src="https://source.unsplash.com/random/200x300/?hacker,cyberpunk" class="glitch-img" alt="Nyx Calder">
-        
-        <h1>[SYSTEM BOOT] NYX CALDER // GLITCHRUNNER</h1>
-        
-        <div class="tags">
-            <span class="tag">STEALTH</span>
-            <span class="tag">REALITY HACKER</span>
-            <span class="tag">DATA EXPUNGED</span>
-        </div>
-        
-        <p>[STATUS: UNSTABLE] Reality compliance at <span id="corruptionPercent">42</span>%</p>
-        <div class="corruption-meter">
-            <div class="corruption-level">CORRUPTION LEVEL</div>
-        </div>
-        
-        <p>Once a top-tier city systems engineer, now existing in the gaps between reality. The Patch collapsed simulation layers—you adapted. Corporate enforcers want you erased... or worse, weaponized.</p>
-        
-        <div class="abilities">
-            <div class="ability">
-                <h3>FRAME SKIP</h3>
-                <p>Short-range teleport with glitching afterimage</p>
-            </div>
-            <div class="ability">
-                <h3>LAG FIELD</h3>
-                <p>Slow enemies/projectiles in localized bubble</p>
-            </div>
-            <div class="ability">
-                <h3>HARD RESET</h3>
-                <p>Rewind last 5 seconds (only you remember)</p>
-            </div>
-            <div class="ability">
-                <h3>GHOST WALK</h3>
-                <p>Phase through objects (builds corruption)</p>
-            </div>
-        </div>
-        
-        <button id="glitchBtn">ACTIVATE GLITCH PROTOCOL</button>
-        <button id="resetBtn">[HARD RESET]</button>
-        
-        <footer>[SYSTEM MESSAGE] Welcome to the edge of the code. Watch your step.</footer>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <h1 class="glitch">GLITCHRUNNER</h1>
+        <p>CORRUPTION: <span id="corruptionValue">0%</span></p>
     </div>
+    <div id="corruptionBar"><div id="corruptionFill"></div></div>
 
     <script>
-        let corruption = 42;
-        const corruptionElement = document.getElementById('corruptionPercent');
-        const glitchBtn = document.getElementById('glitchBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const terminal = document.querySelector('.terminal');
-        
-        glitchBtn.addEventListener('click', () => {
-            corruption += Math.floor(Math.random() * 15);
-            if (corruption > 100) corruption = 100;
-            updateCorruption();
-            applyGlitchEffect();
-        });
-        
-        resetBtn.addEventListener('click', () => {
-            corruption = 0;
-            updateCorruption();
-            terminal.style.transform = 'translate(-50%, -50%)';
-            terminal.style.filter = 'none';
-        });
-        
-        function updateCorruption() {
-            corruptionElement.textContent = corruption;
-            
-            // Visual effects based on corruption level
-            const glitchEffect = document.getElementById('glitchrunner');
-            glitchEffect.style.opacity = corruption / 100;
-            
-            if (corruption > 70) {
-                document.body.style.color = '#f0f';
-                terminal.style.borderColor = '#f0f';
-                terminal.style.boxShadow = '0 0 20px rgba(255, 0, 255, 0.7)';
-            } else {
-                document.body.style.color = '#0ff';
-                terminal.style.borderColor = '#0ff';
-                terminal.style.boxShadow = '0 0 20px rgba(0, 255, 255, 0.5)';
-            }
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Game state
+        const game = {
+            player: {
+                x: 100,
+                y: 100,
+                width: 32,
+                height: 48,
+                speed: 5,
+                isGlitching: false,
+                corruption: 0,
+                abilities: {
+                    frameSkip: { cooldown: 0, maxCooldown: 120 },
+                    lagField: { active: false, duration: 0 },
+                    ghostWalk: { active: false, duration: 0 }
+                }
+            },
+            platforms: [],
+            enemies: [],
+            glitches: [],
+            rooms: []
+        };
+
+        // Initialize platforms
+        for (let i = 0; i < 20; i++) {
+            game.platforms.push({
+                x: Math.random() * canvas.width,
+                y: 50 + Math.random() * (canvas.height - 100),
+                width: 80 + Math.random() * 120,
+                height: 20,
+                glitchProb: Math.random() * 0.3
+            });
         }
-        
-        function applyGlitchEffect() {
-            // Random displacement
-            const xShift = Math.random() * 10 - 5;
-            const yShift = Math.random() * 10 - 5;
-            terminal.style.transform = `translate(calc(-50% + ${xShift}px), calc(-50% + ${yShift}px))`;
+
+        // Game loop
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Visual distortion
-            const hueRotate = Math.random() * 90;
-            terminal.style.filter = `hue-rotate(${hueRotate}deg)`;
-            
-            // Random text corruption
-            if (corruption > 50 && Math.random() > 0.7) {
-                const elements = document.querySelectorAll('p, h1, h3');
-                elements.forEach(el => {
-                    if (Math.random() > 0.5) {
-                        const originalText = el.textContent;
-                        el.textContent = originalText.split('').map(c => 
-                            Math.random() > 0.8 ? '�' : c
-                        ).join('');
-                        
-                        setTimeout(() => {
-                            el.textContent = originalText;
-                        }, 300);
-                    }
-                });
+            // Draw glitch effects
+            if (game.player.isGlitching) {
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
             }
+
+            // Draw platforms
+            ctx.fillStyle = '#222';
+            game.platforms.forEach(plat => {
+                ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+            });
+
+            // Draw player
+            ctx.fillStyle = game.player.isGlitching ? '#ff00ff' : '#00ffff';
+            ctx.fillRect(game.player.x, game.player.y, game.player.width, game.player.height);
+
+            // Corruption effects
+            if (game.player.corruption > 50) {
+                ctx.save();
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, Math.random() * canvas.height);
+                ctx.lineTo(canvas.width, Math.random() * canvas.height);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Update UI
+            document.getElementById('corruptionValue').textContent = `${game.player.corruption}%`;
+            document.getElementById('corruptionFill').style.width = `${game.player.corruption}%`;
+
+            requestAnimationFrame(update);
         }
-        
-        // Ambient corruption increase
+
+        // Controls
+        window.addEventListener('keydown', (e) => {
+            // Movement
+            if (e.key === 'ArrowRight') game.player.x += game.player.speed;
+            if (e.key === 'ArrowLeft') game.player.x -= game.player.speed;
+            if (e.key === 'ArrowUp') game.player.y -= game.player.speed;
+            if (e.key === 'ArrowDown') game.player.y += game.player.speed;
+
+            // Abilities
+            if (e.key === 'f') {
+                // Frame skip
+                if (game.player.abilities.frameSkip.cooldown === 0) {
+                    game.player.x += 100;
+                    game.player.abilities.frameSkip.cooldown = game.player.abilities.frameSkip.maxCooldown;
+                    game.player.isGlitching = true;
+                    setTimeout(() => game.player.isGlitching = false, 300);
+                    game.player.corruption += 5;
+                }
+            }
+
+            if (e.key === 'g') {
+                // Ghost walk
+                game.player.isGlitching = true;
+                game.player.corruption += 10;
+                setTimeout(() => game.player.isGlitching = false, 1000);
+            }
+        });
+
+        // Cool down timers
         setInterval(() => {
-            if (corruption > 0 && Math.random() > 0.8) {
-                corruption -= 1;
-                updateCorruption();
+            if (game.player.abilities.frameSkip.cooldown > 0) {
+                game.player.abilities.frameSkip.cooldown--;
             }
-        }, 2000);
+            if (game.player.corruption > 0) {
+                game.player.corruption -= 0.5;
+            }
+        }, 1000/60);
+
+        // Start game
+        update();
     </script>
 </body>
 </html>

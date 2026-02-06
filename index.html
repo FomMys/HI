@@ -1,128 +1,280 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nyx Calder: Glitchrunner</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #000;
-            font-family: 'Courier New', monospace;
-            color: #0ff;
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="none"/><path fill="%2300ffff" d="M8 0L0 8l3 3 5-5 5 5 3-3z"/></svg>'), auto;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nyx Calder — The Glitchrunner</title>
 
-        #glitchrunner {
-            position: absolute;
-            width: 100vw;
-            height: 100vh;
-            background: radial-gradient(circle at center, rgba(102, 51, 153, 0.2) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: -1;
-        }
+<style>
+:root {
+  --cyan: #00ffff;
+  --purple: #b000ff;
+  --bg: #050508;
+}
 
-        .terminal {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80%;
-            max-width: 800px;
-            border: 1px solid #0ff;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-            padding: 2rem;
-            background: rgba(0, 0, 0, 0.8);
-            animation: flicker 0.1s infinite alternate;
-        }
+* {
+  box-sizing: border-box;
+}
 
-        .glitch-img {
-            float: right;
-            width: 200px;
-            height: 300px;
-            margin-left: 2rem;
-            border: 2px solid #f0f;
-            filter: hue-rotate(90deg);
-            animation: glitch 5s infinite;
-        }
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #111 0%, var(--bg) 70%);
+  font-family: "Courier New", monospace;
+  color: var(--cyan);
+  overflow: hidden;
+}
 
-        @keyframes flicker {
-            0% { opacity: 0.9; }
-            100% { opacity: 1; }
-        }
+/* === BACKGROUND GLITCH FIELD === */
+#glitchrunner {
+  position: fixed;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.02),
+      rgba(255,255,255,0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  pointer-events: none;
+  opacity: 0.2;
+}
 
-        @keyframes glitch {
-            0% { filter: hue-rotate(0); }
-            25% { filter: hue-rotate(90deg) contrast(150%); }
-            50% { filter: hue-rotate(180deg) brightness(1.5); }
-            75% { filter: hue-rotate(270deg) saturate(200%); }
-            100% { filter: hue-rotate(360deg); }
-        }
+/* === TERMINAL === */
+.terminal {
+  position: relative;
+  margin: 5vh auto;
+  width: min(900px, 90%);
+  background: rgba(0,0,0,0.85);
+  border: 1px solid var(--cyan);
+  padding: 2rem;
+  box-shadow: 0 0 30px rgba(0,255,255,0.4);
+}
 
-        h1 {
-            color: #f0f;
-            text-shadow: 0 0 10px #f0f;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px dashed #0ff;
-            padding-bottom: 0.5rem;
-        }
+/* === HEADER === */
+h1 {
+  color: var(--purple);
+  text-shadow: 0 0 12px var(--purple);
+  margin-top: 0;
+  border-bottom: 1px dashed var(--cyan);
+  padding-bottom: 0.5rem;
+}
 
-        .tag {
-            display: inline-block;
-            background: rgba(0, 255, 255, 0.2);
-            padding: 0.3rem 0.6rem;
-            margin: 0.2rem;
-            border-radius: 3px;
-            font-size: 0.8rem;
-        }
+.subtitle {
+  opacity: 0.8;
+  margin-bottom: 1rem;
+}
 
-        button {
-            background: transparent;
-            color: #0ff;
-            border: 1px solid #0ff;
-            padding: 0.5rem 1rem;
-            margin: 0.5rem;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
+/* === CHARACTER IMAGE === */
+.glitch-img {
+  float: right;
+  width: 180px;
+  height: 260px;
+  margin-left: 2rem;
+  border: 2px solid var(--purple);
+  background: linear-gradient(135deg, #111, #222);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--purple);
+  font-size: 0.8rem;
+  animation: imgGlitch 6s infinite;
+}
 
-        button:hover {
-            background: rgba(0, 255, 255, 0.2);
-            box-shadow: 0 0 10px #0ff;
-        }
+/* === TAGS === */
+.tag {
+  display: inline-block;
+  background: rgba(0,255,255,0.15);
+  padding: 0.25rem 0.6rem;
+  margin: 0.2rem;
+  font-size: 0.75rem;
+  border-radius: 3px;
+}
 
-        .abilities {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin: 1rem 0;
-        }
+/* === ABILITIES === */
+.abilities {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
 
-        .ability {
-            border-left: 3px solid #f0f;
-            padding-left: 1rem;
-        }
+.ability {
+  border-left: 3px solid var(--purple);
+  padding-left: 1rem;
+  font-size: 0.9rem;
+}
 
-        .corruption-meter {
-            height: 5px;
-            width: 100%;
-            background: linear-gradient(to right, #0ff, #f0f);
-            margin: 1rem 0;
-            position: relative;
-        }
+button {
+  margin-top: 0.4rem;
+  background: transparent;
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
 
-        .corruption-level {
-            position: absolute;
-            right: 0;
-            top: -1.5rem;
-            font-size: 0.8rem;
-        }
-    </style>
+button:hover {
+  background: rgba(0,255,255,0.2);
+}
+
+/* === CORRUPTION === */
+#corruption {
+  margin-top: 1.5rem;
+}
+
+#corruption-bar {
+  height: 8px;
+  background: #222;
+  border: 1px solid var(--cyan);
+}
+
+#corruption-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cyan), var(--purple));
+}
+
+/* === LOG === */
+#log {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  height: 90px;
+  overflow: hidden;
+}
+
+/* === GLITCH STATES === */
+.glitch {
+  animation: glitchText 0.15s infinite;
+}
+
+.corrupted {
+  filter: hue-rotate(30deg) contrast(1.2);
+}
+
+@keyframes glitchText {
+  0% { transform: translate(0); }
+  33% { transform: translate(-1px, 1px); }
+  66% { transform: translate(1px, -1px); }
+  100% { transform: translate(0); }
+}
+
+@keyframes imgGlitch {
+  0%, 100% { filter: none; }
+  50% { filter: hue-rotate(120deg) contrast(1.3); }
+}
+</style>
 </head>
+
 <body>
-    <div id="glitchrunner"></div>
-    
-    <div class="terminal">
-        <img src
+<div id="glitchrunner"></div>
+
+<div class="terminal" id="terminal">
+  <div class="glitch-img">SIGNAL LOST</div>
+
+  <h1 id="name">Nyx Calder</h1>
+  <div class="subtitle">Alias: The Glitchrunner</div>
+
+  <div>
+    <span class="tag">Stealth-Action</span>
+    <span class="tag">Reality Hacker</span>
+    <span class="tag">[DATA EXPUNGED]</span>
+  </div>
+
+  <p>
+    Once a systems engineer. Now a walking exploit.
+    Nyx slips between frames of reality where physics hesitates and
+    corporate enforcers lag behind.
+  </p>
+
+  <div class="abilities">
+    <div class="ability">
+      <strong>Frame Skip</strong>
+      <p>Short-range teleport. Leaves a corrupted afterimage.</p>
+      <button onclick="useAbility('Frame Skip', 12)">Activate</button>
+    </div>
+
+    <div class="ability">
+      <strong>Lag Field</strong>
+      <p>Local time distortion. Bullets crawl.</p>
+      <button onclick="useAbility('Lag Field', 18)">Activate</button>
+    </div>
+
+    <div class="ability">
+      <strong>Ghost Walk</strong>
+      <p>Phase through solid matter. Corruption builds.</p>
+      <button onclick="useAbility('Ghost Walk', 25)">Activate</button>
+    </div>
+
+    <div class="ability">
+      <strong>Hard Reset</strong>
+      <p>Rewind the last 5 seconds. Only Nyx remembers.</p>
+      <button onclick="hardReset()">Execute</button>
+    </div>
+  </div>
+
+  <div id="corruption">
+    <div>Reality Corruption</div>
+    <div id="corruption-bar">
+      <div id="corruption-fill"></div>
+    </div>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<script>
+let corruption = 0;
+const max = 100;
+
+const fill = document.getElementById("corruption-fill");
+const log = document.getElementById("log");
+const terminal = document.getElementById("terminal");
+const name = document.getElementById("name");
+
+function logMsg(msg) {
+  const line = document.createElement("div");
+  line.textContent = "> " + msg;
+  log.prepend(line);
+  if (log.children.length > 6) log.removeChild(log.lastChild);
+}
+
+function update() {
+  fill.style.width = corruption + "%";
+
+  if (corruption > 50) {
+    document.body.classList.add("corrupted");
+  } else {
+    document.body.classList.remove("corrupted");
+  }
+
+  if (corruption > 70) {
+    name.classList.add("glitch");
+  } else {
+    name.classList.remove("glitch");
+  }
+}
+
+function useAbility(name, cost) {
+  corruption = Math.min(max, corruption + cost);
+  logMsg(name + " activated. Reality destabilizing.");
+  update();
+}
+
+function hardReset() {
+  logMsg("Hard Reset complete. Let’s try that again.");
+  corruption = 0;
+  update();
+}
+
+// passive stabilization
+setInterval(() => {
+  if (corruption > 0) {
+    corruption--;
+    update();
+  }
+}, 1200);
+</script>
+</body>
+</html>

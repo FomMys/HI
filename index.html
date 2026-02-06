@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -122,10 +121,12 @@
                     height: 30,
                     type: enemyTypes[Math.floor(Math.random() * enemyTypes.length)],
                     speed: 1 + Math.random(),
+                    baseSpeed: 1 + Math.random(), // FIX: store base speed for lag field
                     health: 2,
                     direction: Math.random() > 0.5 ? 1 : -1,
                     shootCooldown: 0
                 });
+                enemies[enemies.length-1].baseSpeed = enemies[enemies.length-1].speed;
             }
 
             player.x = 50;
@@ -225,6 +226,7 @@
             if (keys.z && player.frameSkipCooldown <= 0) {
                 player.x += 150 * (keys.right ? 1 : (keys.left ? -1 : 1));
                 corruption += 5;
+                corruption = Math.min(100, corruption); // FIX: cap corruption
                 player.frameSkipCooldown = 60;
                 
                 // Check if teleported through enemies
@@ -246,14 +248,15 @@
 
             if (keys.x && player.lagFieldCooldown <= 0) {
                 corruption += 8;
+                corruption = Math.min(100, corruption); // FIX: cap corruption
                 player.lagFieldCooldown = 120;
                 
                 // Slow enemies in range
                 enemies.forEach(enemy => {
                     if (Math.abs(enemy.x - player.x) < 200 && Math.abs(enemy.y - player.y) < 200) {
-                        enemy.speed = enemy.speed * 0.3;
+                        enemy.speed = enemy.baseSpeed * 0.3; // FIX: prevent stacking bug
                         setTimeout(() => {
-                            enemy.speed = enemy.speed / 0.3;
+                            enemy.speed = enemy.baseSpeed;
                         }, 2000);
                     }
                 });
@@ -267,6 +270,7 @@
 
             if (keys.c && player.hardResetCooldown <= 0 && health < 100) {
                 corruption += 15;
+                corruption = Math.min(100, corruption); // FIX: cap corruption
                 player.hardResetCooldown = 180;
                 health = Math.min(100, health + 30);
                 updateUI();
@@ -289,7 +293,9 @@
             ctx.fillRect(player.x, player.y, player.width, player.height);
 
             // Enemy logic
-            enemies.forEach(enemy => {
+            for (let i = enemies.length - 1; i >= 0; i--) { // FIX: safe removal while iterating
+                let enemy = enemies[i];
+
                 // Movement
                 if (enemy.type === 'patrol') {
                     enemy.x += enemy.speed * enemy.direction;
@@ -338,13 +344,15 @@
                     // Check collision with player
                     if (checkCollision(player, enemy)) {
                         health -= 10;
-                        enemies.splice(enemies.indexOf(enemy), 1);
+                        enemies.splice(i, 1); // FIX: safe removal
                         updateUI();
+                        continue;
                     }
                     
                     // Remove if out of bounds
                     if (enemy.x < 0 || enemy.x > canvas.width) {
-                        enemies.splice(enemies.indexOf(enemy), 1);
+                        enemies.splice(i, 1); // FIX: safe removal
+                        continue;
                     }
                 }
                 
@@ -360,7 +368,7 @@
                     player.x += enemy.direction * 20;
                     updateUI();
                 }
-            });
+            }
 
             // Check level completion
             if (enemies.length === 0) {
@@ -416,4 +424,3 @@
     </script>
 </body>
 </html>
-```

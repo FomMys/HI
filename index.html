@@ -1,344 +1,309 @@
-```html
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Fortnite-Like Battle</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Arial', sans-serif;
-            background-color: #222;
-            color: white;
-        }
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
-        #game-canvas {
-            background-color: #87CEEB;
-            display: block;
-        }
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 100;
-        }
-        #health-bar, #shield-bar {
-            height: 20px;
-            margin-bottom: 5px;
-            border: 2px solid #333;
-        }
-        #health-bar {
-            width: 200px;
-            background-color: #FF0000;
-        }
-        #shield-bar {
-            width: 200px;
-            background-color: #0066FF;
-        }
-        #ammo {
-            font-size: 18px;
-            margin-top: 10px;
-        }
-        #score {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 24px;
-            z-index: 100;
-        }
-        .bot {
-            position: absolute;
-            width: 30px;
-            height: 60px;
-            background-image: url('https://source.unsplash.com/random/?soldier,silhouette');
-            background-size: cover;
-            z-index: 10;
-        }
-        .weapon {
-            position: absolute;
-            width: 40px;
-            height: 20px;
-            background-image: url('https://source.unsplash.com/random/?gun');
-            background-size: cover;
-            z-index: 5;
-        }
-        .building {
-            position: absolute;
-            background-image: url('https://source.unsplash.com/random/?wood,wall');
-            background-size: cover;
-            z-index: 2;
-        }
-    </style>
+<title>Pixel FPS Battle</title>
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+#ui {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+}
+#health-bar, #shield-bar {
+    height: 15px;
+    width: 200px;
+    margin-bottom: 5px;
+}
+#health-bar { background: red; }
+#shield-bar { background: blue; }
+#ammo { margin-top: 5px; }
+#score {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+}
+canvas { display: block; }
+</style>
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="game-canvas"></canvas>
-        <div id="ui">
-            <div id="health-bar"></div>
-            <div id="shield-bar"></div>
-            <div id="ammo">30/∞</div>
-        </div>
-        <div id="score">0</div>
-    </div>
 
-    <script>
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+<div id="ui">
+    <div id="health-bar"></div>
+    <div id="shield-bar"></div>
+    <div id="ammo">30/∞</div>
+</div>
+<div id="score">0</div>
 
-        // Player
-        const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            width: 30,
-            height: 60,
-            speed: 5,
-            health: 100,
-            shield: 100,
-            weapons: ['assault'],
-            currentWeapon: 0,
-            ammo: 30,
-            direction: 0 // angle in radians
-        };
+<canvas id="game-canvas"></canvas>
 
-        // Game state
-        const game = {
-            score: 0,
-            bots: [],
-            buildings: [],
-            weapons: [],
-            bullets: [],
-            lastShot: 0,
-            shotDelay: 300 // ms
-        };
+<script>
+/* ================= CANVAS ================= */
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
 
-        // Controls
-        const keys = {
-            w: false,
-            a: false,
-            s: false,
-            d: false,
-            space: false,
-            shift: false
-        };
+const SCALE = 4;
+const renderCanvas = document.createElement('canvas');
+const rctx = renderCanvas.getContext('2d');
 
-        // Event listeners
-        window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
-            if (e.key === 'Shift') keys.shift = true;
-            if (e.key === ' ') keys.space = true;
-        });
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    renderCanvas.width = canvas.width / SCALE;
+    renderCanvas.height = canvas.height / SCALE;
+    ctx.imageSmoothingEnabled = false;
+    rctx.imageSmoothingEnabled = false;
+}
+resize();
+window.addEventListener('resize', resize);
 
-        window.addEventListener('keyup', (e) => {
-            if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
-            if (e.key === 'Shift') keys.shift = false;
-            if (e.key === ' ') keys.space = false;
-        });
+/* ================= PLAYER / CAMERA ================= */
+const player = {
+    health: 100,
+    shield: 100,
+    ammo: 30,
+    recoil: 0
+};
 
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            player.direction = Math.atan2(mouseY - player.y, mouseX - player.x);
-        });
+const camera = {
+    x: 0,
+    y: 0,
+    angle: 0,
+    sway: 0
+};
 
-        canvas.addEventListener('click', (e) => {
-            const now = Date.now();
-            if (now - game.lastShot > game.shotDelay) {
-                shoot();
-                game.lastShot = now;
+/* ================= GAME ================= */
+const game = {
+    score: 0,
+    bots: [],
+    buildings: [],
+    bullets: [],
+    enemyBullets: [],
+    lastShot: 0
+};
+
+/* ================= INPUT ================= */
+const keys = { w:0,a:0,s:0,d:0,shift:0 };
+
+window.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = 1;
+    if (e.key === 'Shift') keys.shift = 1;
+});
+window.addEventListener('keyup', e => {
+    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = 0;
+    if (e.key === 'Shift') keys.shift = 0;
+});
+
+canvas.addEventListener('click', () => canvas.requestPointerLock());
+
+document.addEventListener('mousemove', e => {
+    if (document.pointerLockElement === canvas) {
+        camera.angle += e.movementX * 0.002;
+        camera.sway = e.movementX * 0.002;
+    }
+});
+
+canvas.addEventListener('mousedown', shoot);
+
+/* ================= HELPERS ================= */
+function worldToScreen(x,y) {
+    return {
+        x: x - camera.x + renderCanvas.width/2,
+        y: y - camera.y + renderCanvas.height/2
+    };
+}
+
+function rectCollide(ax,ay,aw,ah,bx,by,bw,bh) {
+    return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+
+/* ================= WALL COLLISION ================= */
+function collideWalls(nx, ny) {
+    for (const b of game.buildings) {
+        if (rectCollide(nx-5,ny-5,10,10,b.x,b.y,b.w,b.h)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* ================= SHOOT ================= */
+function shoot() {
+    const now = Date.now();
+    if (now - game.lastShot < 200 || player.ammo <= 0) return;
+
+    player.ammo--;
+    game.lastShot = now;
+    player.recoil = 6;
+
+    game.bullets.push({
+        x: camera.x,
+        y: camera.y,
+        dx: Math.cos(camera.angle)*18,
+        dy: Math.sin(camera.angle)*18,
+        life: 60
+    });
+}
+
+/* ================= SPAWN ================= */
+function spawnBot() {
+    game.bots.push({
+        x: camera.x + (Math.random()*600 - 300),
+        y: camera.y + (Math.random()*600 - 300),
+        speed: 1.2,
+        health: 100,
+        shootTimer: 0
+    });
+}
+
+function spawnBuilding() {
+    game.buildings.push({
+        x: Math.random()*2000 - 1000,
+        y: Math.random()*2000 - 1000,
+        w: 100,
+        h: 100
+    });
+}
+
+/* ================= UI ================= */
+function updateUI() {
+    document.getElementById('health-bar').style.width = player.health*2+'px';
+    document.getElementById('shield-bar').style.width = player.shield*2+'px';
+    document.getElementById('ammo').textContent = player.ammo+'/∞';
+    document.getElementById('score').textContent = game.score;
+}
+
+/* ================= LOOP ================= */
+function gameLoop() {
+    rctx.clearRect(0,0,renderCanvas.width,renderCanvas.height);
+
+    /* Movement */
+    let speed = keys.shift ? 5 : 3;
+    let nx = camera.x;
+    let ny = camera.y;
+
+    if (keys.w) { nx += Math.cos(camera.angle)*speed; ny += Math.sin(camera.angle)*speed; }
+    if (keys.s) { nx -= Math.cos(camera.angle)*speed; ny -= Math.sin(camera.angle)*speed; }
+    if (keys.a) { nx += Math.cos(camera.angle-Math.PI/2)*speed; ny += Math.sin(camera.angle-Math.PI/2)*speed; }
+    if (keys.d) { nx += Math.cos(camera.angle+Math.PI/2)*speed; ny += Math.sin(camera.angle+Math.PI/2)*speed; }
+
+    if (!collideWalls(nx,ny)) {
+        camera.x = nx;
+        camera.y = ny;
+    }
+
+    /* Buildings */
+    rctx.fillStyle = '#654321';
+    game.buildings.forEach(b => {
+        const p = worldToScreen(b.x,b.y);
+        rctx.fillRect(p.x,p.y,b.w/SCALE,b.h/SCALE);
+    });
+
+    /* Bots AI */
+    game.bots.forEach(bot => {
+        const dist = Math.hypot(camera.x-bot.x,camera.y-bot.y);
+        const angle = Math.atan2(camera.y-bot.y,camera.x-bot.x);
+
+        if (dist > 120) {
+            const bx = bot.x + Math.cos(angle)*bot.speed;
+            const by = bot.y + Math.sin(angle)*bot.speed;
+            if (!collideWalls(bx,by)) {
+                bot.x = bx;
+                bot.y = by;
+            }
+        } else {
+            bot.shootTimer++;
+            if (bot.shootTimer > 40) {
+                bot.shootTimer = 0;
+                game.enemyBullets.push({
+                    x: bot.x,
+                    y: bot.y,
+                    dx: Math.cos(angle)*10,
+                    dy: Math.sin(angle)*10,
+                    life: 60
+                });
+            }
+        }
+
+        const p = worldToScreen(bot.x,bot.y);
+        rctx.fillStyle = 'red';
+        rctx.fillRect(p.x-4,p.y-8,8,16);
+    });
+
+    /* Player bullets */
+    game.bullets.forEach((b,i) => {
+        b.x+=b.dx; b.y+=b.dy; b.life--;
+        const p = worldToScreen(b.x,b.y);
+        rctx.fillStyle='yellow';
+        rctx.fillRect(p.x,p.y,2,2);
+
+        game.bots.forEach((bot,bi)=>{
+            if (Math.hypot(bot.x-b.x,bot.y-b.y)<10) {
+                bot.health-=50;
+                b.life=0;
+                if (bot.health<=0) {
+                    game.bots.splice(bi,1);
+                    game.score+=100;
+                }
             }
         });
 
-        function shoot() {
-            if (player.ammo <= 0) return;
-            player.ammo--;
-            updateAmmoUI();
+        if (b.life<=0) game.bullets.splice(i,1);
+    });
 
-            const bullet = {
-                x: player.x + Math.cos(player.direction) * 30,
-                y: player.y + Math.sin(player.direction) * 30,
-                dx: Math.cos(player.direction) * 10,
-                dy: Math.sin(player.direction) * 10,
-                lifetime: 100
-            };
-            game.bullets.push(bullet);
+    /* Enemy bullets */
+    game.enemyBullets.forEach((b,i)=>{
+        b.x+=b.dx; b.y+=b.dy; b.life--;
+        const p = worldToScreen(b.x,b.y);
+        rctx.fillStyle='orange';
+        rctx.fillRect(p.x,p.y,2,2);
 
-            // Check for hits
-            game.bots.forEach((bot, i) => {
-                if (checkCollision(
-                    bullet.x, bullet.y, 5, 5,
-                    bot.x, bot.y, bot.width, bot.height
-                )) {
-                    bot.health -= 25;
-                    bullet.lifetime = 0;
-                    if (bot.health <= 0) {
-                        game.bots.splice(i, 1);
-                        game.score += 100;
-                        updateScoreUI();
-                        spawnBot();
-                    }
-                }
-            });
+        if (Math.hypot(camera.x-b.x,camera.y-b.y)<10) {
+            player.health-=5;
+            b.life=0;
         }
 
-        function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
-            return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
-        }
+        if (b.life<=0) game.enemyBullets.splice(i,1);
+    });
 
-        function spawnBot() {
-            const side = Math.floor(Math.random() * 4);
-            let x, y;
-            switch (side) {
-                case 0: // top
-                    x = Math.random() * canvas.width;
-                    y = -50;
-                    break;
-                case 1: // right
-                    x = canvas.width + 50;
-                    y = Math.random() * canvas.height;
-                    break;
-                case 2: // bottom
-                    x = Math.random() * canvas.width;
-                    y = canvas.height + 50;
-                    break;
-                case 3: // left
-                    x = -50;
-                    y = Math.random() * canvas.height;
-                    break;
-            }
-            game.bots.push({
-                x: x,
-                y: y,
-                width: 30,
-                height: 60,
-                speed: 1 + Math.random() * 2,
-                health: 100,
-                direction: Math.atan2(player.y - y, player.x - x)
-            });
-        }
+    /* Weapon */
+    player.recoil*=0.8;
+    rctx.fillStyle='#333';
+    rctx.fillRect(
+        renderCanvas.width/2-20+camera.sway*5,
+        renderCanvas.height-20+player.recoil,
+        40,12
+    );
 
-        function spawnBuilding() {
-            game.buildings.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                width: 50 + Math.random() * 100,
-                height: 50 + Math.random() * 100
-            });
-        }
+    /* Crosshair */
+    rctx.strokeStyle='white';
+    rctx.beginPath();
+    rctx.moveTo(renderCanvas.width/2-4,renderCanvas.height/2);
+    rctx.lineTo(renderCanvas.width/2+4,renderCanvas.height/2);
+    rctx.moveTo(renderCanvas.width/2,renderCanvas.height/2-4);
+    rctx.lineTo(renderCanvas.width/2,renderCanvas.height/2+4);
+    rctx.stroke();
 
-        function updateAmmoUI() {
-            document.getElementById('ammo').textContent = `${player.ammo}/∞`;
-        }
+    ctx.drawImage(renderCanvas,0,0,canvas.width,canvas.height);
 
-        function updateScoreUI() {
-            document.getElementById('score').textContent = game.score;
-        }
+    updateUI();
+    if (Math.random()<0.01 && game.bots.length<8) spawnBot();
 
-        function updateHealthUI() {
-            document.getElementById('health-bar').style.width = `${player.health}px`;
-            document.getElementById('shield-bar').style.width = `${player.shield}px`;
-        }
+    requestAnimationFrame(gameLoop);
+}
 
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw background (sky and ground)
-            ctx.fillStyle = '#87CEEB';
-            ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
-            ctx.fillStyle = '#228B22';
-            ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
-
-            // Draw buildings
-            ctx.fillStyle = '#8B4513';
-            game.buildings.forEach(building => {
-                ctx.fillRect(building.x, building.y, building.width, building.height);
-            });
-
-            // Update player position
-            if (keys.w) player.y -= player.speed;
-            if (keys.s) player.y += player.speed;
-            if (keys.a) player.x -= player.speed;
-            if (keys.d) player.x += player.speed;
-            if (keys.shift) player.speed = 8;
-            else player.speed = 5;
-
-            // Keep player in bounds
-            player.x = Math.max(0, Math.min(canvas.width, player.x));
-            player.y = Math.max(0, Math.min(canvas.height, player.y));
-
-            // Draw player
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.direction);
-            ctx.fillStyle = '#0000FF';
-            ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
-            ctx.restore();
-
-            // Update bots
-            game.bots.forEach(bot => {
-                bot.x += Math.cos(bot.direction) * bot.speed;
-                bot.y += Math.sin(bot.direction) * bot.speed;
-                bot.direction = Math.atan2(player.y - bot.y, player.x - bot.x);
-
-                // Draw bot
-                ctx.save();
-                ctx.translate(bot.x, bot.y);
-                ctx.rotate(bot.direction);
-                ctx.fillStyle = '#FF0000';
-                ctx.fillRect(-bot.width/2, -bot.height/2, bot.width, bot.height);
-                ctx.restore();
-
-                // Check collision with player
-                if (checkCollision(
-                    player.x - player.width/2, player.y - player.height/2, player.width, player.height,
-                    bot.x - bot.width/2, bot.y - bot.height/2, bot.width, bot.height
-                )) {
-                    player.health -= 0.5;
-                    updateHealthUI();
-                }
-            });
-
-            // Update bullets
-            game.bullets.forEach((bullet, i) => {
-                bullet.x += bullet.dx;
-                bullet.y += bullet.dy;
-                bullet.lifetime--;
-
-                // Draw bullet
-                ctx.fillStyle = '#FFFF00';
-                ctx.beginPath();
-                ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Remove expired bullets
-                if (bullet.lifetime <= 0) {
-                    game.bullets.splice(i, 1);
-                }
-            });
-
-            // Spawn bots occasionally
-            if (Math.random() < 0.01 && game.bots.length < 10) {
-                spawnBot();
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Initialize game
-        for (let i = 0; i < 5; i++) {
-            spawnBuilding();
-            spawnBot();
-        }
-        updateHealthUI();
-        updateScoreUI();
-        gameLoop();
-    </script>
+/* ================= INIT ================= */
+for (let i=0;i<12;i++) spawnBuilding();
+for (let i=0;i<4;i++) spawnBot();
+updateUI();
+gameLoop();
+</script>
 </body>
 </html>
-```

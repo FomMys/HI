@@ -1,246 +1,344 @@
+```html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GLITCHRUNNER</title>
-
-<style>
-body {
-    margin: 0;
-    overflow: hidden;
-    background: black;
-    font-family: 'Courier New', monospace;
-    color: cyan;
-}
-#gameCanvas { display:block; image-rendering:pixelated }
-#ui {
-    position:absolute;
-    top:10px;
-    left:10px;
-    font-size:14px;
-}
-.cooldown {
-    height:4px;
-    background:cyan;
-    margin-top:2px;
-}
-#corruptionMeter {
-    position:absolute;
-    bottom:20px;
-    left:20px;
-    width:200px;
-    height:10px;
-    border:1px solid cyan;
-}
-#corruptionFill {
-    height:100%;
-    background:purple;
-}
-.glitchText {
-    animation: glitch 0.1s infinite;
-}
-@keyframes glitch {
-    0%{transform:translate(0)}
-    50%{transform:translate(-1px,1px)}
-    100%{transform:translate(0)}
-}
-</style>
+    <title>Fortnite-Like Battle</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background-color: #222;
+            color: white;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #game-canvas {
+            background-color: #87CEEB;
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+        }
+        #health-bar, #shield-bar {
+            height: 20px;
+            margin-bottom: 5px;
+            border: 2px solid #333;
+        }
+        #health-bar {
+            width: 200px;
+            background-color: #FF0000;
+        }
+        #shield-bar {
+            width: 200px;
+            background-color: #0066FF;
+        }
+        #ammo {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            z-index: 100;
+        }
+        .bot {
+            position: absolute;
+            width: 30px;
+            height: 60px;
+            background-image: url('https://source.unsplash.com/random/?soldier,silhouette');
+            background-size: cover;
+            z-index: 10;
+        }
+        .weapon {
+            position: absolute;
+            width: 40px;
+            height: 20px;
+            background-image: url('https://source.unsplash.com/random/?gun');
+            background-size: cover;
+            z-index: 5;
+        }
+        .building {
+            position: absolute;
+            background-image: url('https://source.unsplash.com/random/?wood,wall');
+            background-size: cover;
+            z-index: 2;
+        }
+    </style>
 </head>
-
 <body>
-<canvas id="gameCanvas"></canvas>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="ui">
+            <div id="health-bar"></div>
+            <div id="shield-bar"></div>
+            <div id="ammo">30/∞</div>
+        </div>
+        <div id="score">0</div>
+    </div>
 
-<div id="ui">
-LEVEL <span id="levelDisplay"></span> |
-HP <span id="healthDisplay"></span>%
-<div>Z<div id="zcd" class="cooldown"></div></div>
-<div>X<div id="xcd" class="cooldown"></div></div>
-<div>C<div id="ccd" class="cooldown"></div></div>
-</div>
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-<div id="corruptionMeter"><div id="corruptionFill"></div></div>
+        // Player
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            width: 30,
+            height: 60,
+            speed: 5,
+            health: 100,
+            shield: 100,
+            weapons: ['assault'],
+            currentWeapon: 0,
+            ammo: 30,
+            direction: 0 // angle in radians
+        };
 
-<script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-canvas.width = innerWidth;
-canvas.height = innerHeight;
+        // Game state
+        const game = {
+            score: 0,
+            bots: [],
+            buildings: [],
+            weapons: [],
+            bullets: [],
+            lastShot: 0,
+            shotDelay: 300 // ms
+        };
 
-let level=1, health=100, corruption=0;
-let enemies=[], projectiles=[], platforms=[];
-let shake=0;
+        // Controls
+        const keys = {
+            w: false,
+            a: false,
+            s: false,
+            d: false,
+            space: false,
+            shift: false
+        };
 
-const player = {
-    x:50,y:canvas.height-100,w:20,h:40,
-    vy:0,jumping:false,
-    zcd:0,xcd:0,ccd:0
-};
-
-const keys={};
-
-function updateUI(){
-    levelDisplay.textContent=level;
-    healthDisplay.textContent=health;
-    corruptionFill.style.width=corruption+"%";
-    zcd.style.width=(player.zcd/60*100)+"%";
-    xcd.style.width=(player.xcd/120*100)+"%";
-    ccd.style.width=(player.ccd/180*100)+"%";
-}
-
-function collide(a,b){
-    return a.x<a.w+b.x && a.x+a.w>b.x &&
-           a.y<a.h+b.y && a.y+a.h>b.y;
-}
-
-function initLevel(){
-    enemies=[]; projectiles=[]; platforms=[];
-    for(let i=0;i<5+level;i++){
-        platforms.push({
-            x:Math.random()*(canvas.width-120),
-            y:canvas.height-50-i*100,
-            w:80+Math.random()*80,h:10
+        // Event listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+            if (e.key === 'Shift') keys.shift = true;
+            if (e.key === ' ') keys.space = true;
         });
-    }
 
-    const boss = level%5===0;
-    for(let i=0;i<(boss?1:level);i++){
-        enemies.push({
-            x:Math.random()*canvas.width,
-            y:platforms[i%platforms.length].y-40,
-            w: boss?60:20,
-            h: boss?80:30,
-            hp: boss?20:2,
-            type: boss?"boss":["patrol","shooter","charger"][Math.floor(Math.random()*3)],
-            speed: boss?1:1+Math.random(),
-            base:0, dir:Math.random()>0.5?1:-1,
-            shoot:0, slow:0, hitFlash:0
+        window.addEventListener('keyup', (e) => {
+            if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+            if (e.key === 'Shift') keys.shift = false;
+            if (e.key === ' ') keys.space = false;
         });
-        enemies.at(-1).base=enemies.at(-1).speed;
-    }
-    player.x=50; player.y=canvas.height-100;
-    corruption=Math.min(corruption,90);
-    updateUI();
-}
 
-function gameLoop(){
-    let ox=0,oy=0;
-    if(shake){ ox=(Math.random()-0.5)*shake; oy=(Math.random()-0.5)*shake; shake*=0.9; }
-    ctx.setTransform(1,0,0,1,ox,oy);
-    ctx.clearRect(-ox,-oy,canvas.width,canvas.height);
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            player.direction = Math.atan2(mouseY - player.y, mouseX - player.x);
+        });
 
-    if(corruption>60 && Math.random()<0.05) shake=5;
-
-    ctx.fillStyle=corruption>50?"#110011":"black";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    platforms.forEach(p=>{
-        ctx.fillStyle="#333";
-        ctx.fillRect(p.x,p.y,p.w,p.h);
-    });
-
-    if(keys.ArrowLeft) player.x-=5;
-    if(keys.ArrowRight) player.x+=5;
-    if(keys.ArrowUp && !player.jumping){
-        player.vy=-12; player.jumping=true;
-    }
-
-    player.vy+=0.5;
-    const oldY=player.y;
-    player.y+=player.vy;
-
-    platforms.forEach(p=>{
-        if(player.x<p.x+p.w && player.x+player.w>p.x){
-            if(oldY+player.h<=p.y && player.y+player.h>=p.y){
-                player.y=p.y-player.h;
-                player.vy=0; player.jumping=false;
-            }
-        }
-    });
-
-    if(player.y>canvas.height){ health-=10; player.y=0; updateUI(); }
-
-    if(keys.z && player.zcd<=0){
-        player.x+=150*(keys.ArrowLeft?-1:1);
-        corruption+=5; player.zcd=60;
-    }
-    if(keys.x && player.xcd<=0){
-        corruption+=8; player.xcd=120;
-        enemies.forEach(e=>{
-            if(Math.abs(e.x-player.x)<200){
-                e.slow=120;
+        canvas.addEventListener('click', (e) => {
+            const now = Date.now();
+            if (now - game.lastShot > game.shotDelay) {
+                shoot();
+                game.lastShot = now;
             }
         });
-    }
-    if(keys.c && player.ccd<=0 && health<100){
-        corruption+=15; health=Math.min(100,health+30);
-        player.ccd=180; updateUI();
-    }
 
-    if(player.zcd)player.zcd--;
-    if(player.xcd)player.xcd--;
-    if(player.ccd)player.ccd--;
+        function shoot() {
+            if (player.ammo <= 0) return;
+            player.ammo--;
+            updateAmmoUI();
 
-    ctx.fillStyle=corruption>70?"purple":"cyan";
-    ctx.fillRect(player.x,player.y,player.w,player.h);
+            const bullet = {
+                x: player.x + Math.cos(player.direction) * 30,
+                y: player.y + Math.sin(player.direction) * 30,
+                dx: Math.cos(player.direction) * 10,
+                dy: Math.sin(player.direction) * 10,
+                lifetime: 100
+            };
+            game.bullets.push(bullet);
 
-    enemies.forEach(e=>{
-        if(e.slow){ e.speed=e.base*0.3; e.slow--; }
-        else e.speed=e.base;
-
-        if(e.type==="charger" && Math.abs(player.x-e.x)<200){
-            e.x+=e.speed*Math.sign(player.x-e.x);
-            if(Math.random()<0.02 && !e.jumping){ e.vy=-10; e.jumping=true; }
+            // Check for hits
+            game.bots.forEach((bot, i) => {
+                if (checkCollision(
+                    bullet.x, bullet.y, 5, 5,
+                    bot.x, bot.y, bot.width, bot.height
+                )) {
+                    bot.health -= 25;
+                    bullet.lifetime = 0;
+                    if (bot.health <= 0) {
+                        game.bots.splice(i, 1);
+                        game.score += 100;
+                        updateScoreUI();
+                        spawnBot();
+                    }
+                }
+            });
         }
 
-        if(e.type==="shooter"){
-            e.shoot--;
-            if(e.shoot<=0){
-                projectiles.push({
-                    x:e.x,y:e.y,
-                    vx:(player.x-e.x)/50,
-                    vy:(player.y-e.y)/50
-                });
-                e.shoot=90;
+        function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+        }
+
+        function spawnBot() {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            switch (side) {
+                case 0: // top
+                    x = Math.random() * canvas.width;
+                    y = -50;
+                    break;
+                case 1: // right
+                    x = canvas.width + 50;
+                    y = Math.random() * canvas.height;
+                    break;
+                case 2: // bottom
+                    x = Math.random() * canvas.width;
+                    y = canvas.height + 50;
+                    break;
+                case 3: // left
+                    x = -50;
+                    y = Math.random() * canvas.height;
+                    break;
             }
+            game.bots.push({
+                x: x,
+                y: y,
+                width: 30,
+                height: 60,
+                speed: 1 + Math.random() * 2,
+                health: 100,
+                direction: Math.atan2(player.y - y, player.x - x)
+            });
         }
 
-        if(e.hitFlash>0){ ctx.fillStyle="white"; e.hitFlash--; }
-        else ctx.fillStyle="red";
-        ctx.fillRect(e.x,e.y,e.w,e.h);
-    });
-
-    projectiles.forEach((p,i)=>{
-        p.x+=p.vx*3; p.y+=p.vy*3;
-        ctx.fillStyle="yellow";
-        ctx.fillRect(p.x,p.y,4,4);
-        if(p.x<0||p.x>canvas.width) projectiles.splice(i,1);
-        if(collide(player,{x:p.x,y:p.y,w:4,h:4})){
-            health-=10; projectiles.splice(i,1); updateUI();
+        function spawnBuilding() {
+            game.buildings.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                width: 50 + Math.random() * 100,
+                height: 50 + Math.random() * 100
+            });
         }
-    });
 
-    if(enemies.length===0){
-        level++; initLevel();
-    }
-    if(health<=0){
-        alert("PROCESS TERMINATED");
-        level=1; health=100; corruption=0;
-        initLevel();
-    }
+        function updateAmmoUI() {
+            document.getElementById('ammo').textContent = `${player.ammo}/∞`;
+        }
 
-    ui.className=corruption>70?"glitchText":"";
-    corruption=Math.min(100,corruption);
-    updateUI();
-    requestAnimationFrame(gameLoop);
-}
+        function updateScoreUI() {
+            document.getElementById('score').textContent = game.score;
+        }
 
-onkeydown=e=>keys[e.key]=true;
-onkeyup=e=>keys[e.key]=false;
-onresize=()=>{canvas.width=innerWidth;canvas.height=innerHeight};
+        function updateHealthUI() {
+            document.getElementById('health-bar').style.width = `${player.health}px`;
+            document.getElementById('shield-bar').style.width = `${player.shield}px`;
+        }
 
-initLevel();
-gameLoop();
-</script>
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background (sky and ground)
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
+
+            // Draw buildings
+            ctx.fillStyle = '#8B4513';
+            game.buildings.forEach(building => {
+                ctx.fillRect(building.x, building.y, building.width, building.height);
+            });
+
+            // Update player position
+            if (keys.w) player.y -= player.speed;
+            if (keys.s) player.y += player.speed;
+            if (keys.a) player.x -= player.speed;
+            if (keys.d) player.x += player.speed;
+            if (keys.shift) player.speed = 8;
+            else player.speed = 5;
+
+            // Keep player in bounds
+            player.x = Math.max(0, Math.min(canvas.width, player.x));
+            player.y = Math.max(0, Math.min(canvas.height, player.y));
+
+            // Draw player
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.direction);
+            ctx.fillStyle = '#0000FF';
+            ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+            ctx.restore();
+
+            // Update bots
+            game.bots.forEach(bot => {
+                bot.x += Math.cos(bot.direction) * bot.speed;
+                bot.y += Math.sin(bot.direction) * bot.speed;
+                bot.direction = Math.atan2(player.y - bot.y, player.x - bot.x);
+
+                // Draw bot
+                ctx.save();
+                ctx.translate(bot.x, bot.y);
+                ctx.rotate(bot.direction);
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(-bot.width/2, -bot.height/2, bot.width, bot.height);
+                ctx.restore();
+
+                // Check collision with player
+                if (checkCollision(
+                    player.x - player.width/2, player.y - player.height/2, player.width, player.height,
+                    bot.x - bot.width/2, bot.y - bot.height/2, bot.width, bot.height
+                )) {
+                    player.health -= 0.5;
+                    updateHealthUI();
+                }
+            });
+
+            // Update bullets
+            game.bullets.forEach((bullet, i) => {
+                bullet.x += bullet.dx;
+                bullet.y += bullet.dy;
+                bullet.lifetime--;
+
+                // Draw bullet
+                ctx.fillStyle = '#FFFF00';
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Remove expired bullets
+                if (bullet.lifetime <= 0) {
+                    game.bullets.splice(i, 1);
+                }
+            });
+
+            // Spawn bots occasionally
+            if (Math.random() < 0.01 && game.bots.length < 10) {
+                spawnBot();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize game
+        for (let i = 0; i < 5; i++) {
+            spawnBuilding();
+            spawnBot();
+        }
+        updateHealthUI();
+        updateScoreUI();
+        gameLoop();
+    </script>
 </body>
 </html>
+```
